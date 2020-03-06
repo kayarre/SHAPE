@@ -1,67 +1,99 @@
 project(shape)
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.14)
 
-if(POLICY CMP0020)
-  cmake_policy(SET CMP0020 NEW)
-endif()
 
-find_package(VTK REQUIRED
-  vtkCommonCore
-  vtkFiltersCore
-  vtkInfovisCore
-  vtkInteractionStyle
-  vtkViewsQt
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Instruct CMake to run moc automatically when needed.
+# set(CMAKE_AUTOMOC ON)
+# set(CMAKE_AUTOUIC ON)
+# set(CMAKE_AUTORCC ON)
+
+# if(POLICY CMP0020)
+#   cmake_policy(SET CMP0020 NEW)
+# endif()
+
+find_package(VTK COMPONENTS REQUIRED
+  CommonCore
+  CommonColor
+  FiltersCore
+  RenderingCore
+  InfovisCore
+  FiltersSources
+  InteractionStyle
+  InteractionWidgets
+  ViewsQt
+  GUISupportQt
+  RenderingOpenGL2
+  RenderingFreeType
+  RenderingContext2D
 )
-include(${VTK_USE_FILE})
 
-if("${VTK_QT_VERSION}" STREQUAL "")
-  message(FATAL_ERROR "VTK was not built with Qt")
+if(vtkGUISupportQt_LOADED OR TARGET VTK::GUISupportQt)
+  # The rest should just work (sure...)
+  # We have ui files, this will bring in the macro: qt5_wrap_ui
+  find_package(Qt5 COMPONENTS REQUIRED Widgets Core)
+  if (NOT TARGET Qt5::Widgets)
+    message("Cannot find qt5 thing: ${Qt5_NOT_FOUND_MESSAGE}")
+    return ()
+  endif ()
+else()
+  message(STATUS "GuiSupportQt not found.")
+  return()
 endif()
-
-# Use the include path and library for Qt that is used by VTK.
-include_directories(
-  ${CMAKE_CURRENT_BINARY_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  /Users/khairyk/VPCZ1_kk_share/c_code/shape_tools
-)
 
 # Set your files and resources here
-set( Srcs main.cpp shape.cpp )
 
+set( shape_tools /home/krs/build/shape/shape_tools)
+
+set( sources main.cpp shape.cpp )
 set( Hdrs shape.h)
+set( Uis shape.ui)
 
-set( MOC_Hdrs shape.h )
-
-set( UIs shape.ui )
+#set( MOC_Hdrs shape.h )
+#qt5_wrap_cpp(MOC_Hdrs shape.h)
+#qt5_wrap_ui(UIS_Hdrs shape.ui)
 
 set( QRCs shape.qrc )
 
 
-# Instruct CMake to run moc automatically when needed.
-set(CMAKE_AUTOMOC ON)
+add_executable(shape 
+  ${sources} # ${QRCs} ${Hdrs} ${Uis}
+)
 
-# The rest should just work (sure...)
-  # We have ui files, this will bring in the macro: qt5_wrap_ui
-  find_package(Qt5Widgets REQUIRED QUIET)
-  qt5_wrap_ui(UI_Srcs ${UIs})
-  qt5_add_resources(QRC_Srcs ${QRCs} )
 
-  source_group("Resources" FILES
-    ${UIs}
-    ${QRCs}
-    ${EXE_ICON} # Not present
-  )
+target_link_libraries(shape PRIVATE
+  Qt5::Widgets
+  Qt5::Core
+  VTK::CommonCore
+  VTK::FiltersSources
+  VTK::GUISupportQt
+  VTK::InteractionStyle
+  VTK::RenderingCore
+  VTK::CommonColor
+  VTK::InteractionWidgets
+  VTK::RenderingContext2D
+  VTK::RenderingFreeType
+  VTK::RenderingGL2PSOpenGL2
+  VTK::RenderingOpenGL2
+)
 
-  source_group("Generated" FILES
-    ${UI_Srcs}
-    ${MOC_Srcs}
-    ${QRC_Srcs}
-    ${QRC_Srcs}
-  )
+target_include_directories(shape SYSTEM PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${VTK_INCLUDE_DIRS}
+    ${shape_tools}
+    ${AUTOGEN_BUILD_DIR}
+)
 
-  add_executable(shape MACOSX_BUNDLE
-    ${Srcs} ${Hdrs} ${UI_Srcs} ${MOC_Hdrs} ${QRC_Srcs})
-  qt5_use_modules(shape Core Gui Widgets)
-  target_link_libraries(shape vtkIOPLY vtkIOGeometry vtkIOExport ${VTK_LIBRARIES})
+target_compile_definitions(shape PRIVATE
+    ${VTK_DEFINITIONS}
+)
 
+set_target_properties(shape PROPERTIES
+    AUTOMOC ON
+    AUTOUIC ON
+    AUTORCC ON
+)
